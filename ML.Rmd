@@ -1,0 +1,126 @@
+---
+title: "Machine Learning"
+author: "Vinay Sri Harsha"
+date: "8/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Source
+The training data for this project are available in the below link:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available below link:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Data Loading and Cleaning
+```{r}
+library(caret)
+library(lattice)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+
+training <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testing1  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+training_Data <- read.csv(url(training), strip.white = TRUE, na.strings =c("NA",""))
+Test_Data <- read.csv(url(testing1),  strip.white = TRUE,na.strings=c("NA",""))
+
+dim(training_Data)
+
+dim(Test_Data)
+```
+Create two partitions (75% and 25%) within the original training dataset
+```{r}
+in_train <- createDataPartition(training_Data$classe,p=0.75,list = FALSE)
+train_set <- training_Data[in_train,]
+test_set <- training_Data[-in_train,]
+
+dim(train_set)
+
+dim(test_set)
+```
+The two datasets (train_set and test_set) have large number of NA values as well as non-zero variance variables. Both will be removed.
+
+```{r}
+nzv_var <-nearZeroVar(train_set)
+train_set <- train_set[,-nzv_var]
+test_set <- test_set[,-nzv_var]
+
+dim(train_set)
+
+dim(test_set)
+```
+Remove variables that are mostly NA. A threshold of 75% selected
+```{r}
+na_var <- sapply(train_set,function(x) mean(is.na(x)))>0.75
+train_set <- train_set [,na_var==FALSE]
+test_set <- test_set [,na_var==FALSE]
+
+dim(train_set)
+
+dim(test_set)
+```
+Since columns 1 to 5 are identification variables only, removing these as well.
+```{r}
+train_set <- train_set[,-(1:5)]
+test_set <- test_set [,-(1:5)]
+
+dim(train_set)
+dim(test_set)
+```
+The number of variables now reduced to 54 from 160.
+
+## Prediction Models
+Decision Tree Model:
+```{r}
+set.seed(1813)
+fit_decision_tree <-rpart(classe ~ .,data=train_set,method = "class")
+
+rpart.plot(fit_decision_tree)
+
+```
+
+Predictions of decision tree model on test_set
+
+```{r}
+predict_decision_tree <- predict(fit_decision_tree,newdata = test_set,type = "class")
+conf_decision_tree <- confusionMatrix(predict_decision_tree,test_set$classe)
+conf_decision_tree
+```
+The predictive accuracy of decision tree model is 75%
+
+## Random Forest Model
+```{r}
+ctrl_RF <-trainControl(method="repeatedcv",number=5,repeats=2)
+fit_RF <- train(classe ~ .,data =train_set,method="rf",trControl=ctrl_RF,verbose=FALSE)
+fit_RF$finalModel
+```
+
+Predictions of Random forest model on test_set data
+
+```{r}
+predict_RF<-predict(fit_RF,newdata=test_set)
+conf_RF <- confusionMatrix(predict_RF,test_set$classe)
+conf_RF
+```
+The predictive accuracy of Random Forest Model is 99.79%
+
+Random Forest Model is selected and applied to make predictions on the 20 data points on the original test data (Test_Data)
+
+```{r}
+predict_test <- predict(fit_RF,newdata = Test_Data)
+predict_test
+```
+
+
+
+
+
+
